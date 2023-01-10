@@ -5,15 +5,14 @@ import { Guaridian } from "../utils/Guardian";
 import { ERC1155, ERC20, ERC721, ETH } from "../utils/Token";
 import { RPC } from '../utils/rpc';
 import { Converter } from "../utils/converter";
+import { NumberLike } from "../defines/numberLike";
+import { CodefiGasFees } from '../utils/gasFee';
 export declare class EIP4337Lib {
-    /**
-     * User Operation
-     */
-    static UserOperation: typeof UserOperation;
     static Utils: {
         getNonce: typeof EIP4337Lib.getNonce;
         DecodeCallData: typeof DecodeCallData;
         fromTransaction: typeof Converter.fromTransaction;
+        suggestedGasFee: typeof CodefiGasFees;
     };
     static Defines: {
         AddressZero: string;
@@ -29,11 +28,15 @@ export declare class EIP4337Lib {
         eth_sendUserOperation: typeof RPC.eth_sendUserOperation;
         eth_supportedEntryPoints: typeof RPC.eth_supportedEntryPoints;
         waitUserOperation: typeof RPC.waitUserOperation;
+        simulateValidation: typeof RPC.simulateValidation;
+        simulateHandleOp: typeof RPC.simulateHandleOp;
     };
     /**
      *
      * @param entryPointAddress the entryPoint address
      * @param ownerAddress the owner address
+     * @param upgradeDelay the upgrade delay time
+     * @param guardianDelay the guardian delay time
      * @param tokenAddress the WETH token address
      * @param payMasterAddress the payMaster address
      * @returns inithex
@@ -44,37 +47,45 @@ export declare class EIP4337Lib {
      * @param walletLogicAddress the wallet logic contract address
      * @param entryPointAddress the entryPoint address
      * @param ownerAddress the owner address
+     * @param upgradeDelay the upgrade delay time
+     * @param guardianDelay the guardian delay time
      * @param tokenAddress the WETH token address
      * @param payMasterAddress the payMaster address
      * @returns the wallet code hex string
      */
-    static getWalletCode(walletLogicAddress: string, entryPointAddress: string, ownerAddress: string, tokenAddress: string, payMasterAddress: string): string;
+    static getWalletCode(walletLogicAddress: string, entryPointAddress: string, ownerAddress: string, upgradeDelay: number, guardianDelay: number, guardianAddress: string, tokenAddress: string, payMasterAddress: string): string;
     /**
      * calculate wallet address by owner address
      * @param walletLogicAddress the wallet logic contract address
      * @param entryPointAddress the entryPoint address
      * @param ownerAddress the owner address
+     * @param upgradeDelay the upgrade delay time
+     * @param guardianDelay the guardian delay time
+     * @param guardianAddress the guardian contract address
      * @param tokenAddress the WETH token address
      * @param payMasterAddress the payMaster address
      * @param salt the salt number,default is 0
      * @param create2Factory create2factory address defined in EIP-2470
      * @returns
      */
-    static calculateWalletAddress(walletLogicAddress: string, entryPointAddress: string, ownerAddress: string, tokenAddress: string, payMasterAddress: string, salt: number, create2Factory: string): string;
+    static calculateWalletAddress(walletLogicAddress: string, entryPointAddress: string, ownerAddress: string, upgradeDelay: number, guardianDelay: number, guardianAddress: string, tokenAddress: string, payMasterAddress: string, salt: number, create2Factory: string): string;
     /**
      * get the userOperation for active (first time) the wallet
      * @param walletLogicAddress the wallet logic contract address
      * @param entryPointAddress
      * @param payMasterAddress
      * @param ownerAddress
+     * @param upgradeDelay the upgrade delay time
+     * @param guardianDelay the guardian delay time
+     * @param guardianAddress the guardian contract address
      * @param tokenAddress WETH address
      * @param maxFeePerGas
      * @param maxPriorityFeePerGas
      * @param salt
      * @param create2Factory
      */
-    static activateWalletOp(walletLogicAddress: string, entryPointAddress: string, payMasterAddress: string, ownerAddress: string, tokenAddress: string, maxFeePerGas: number, maxPriorityFeePerGas: number, salt: number, create2Factory: string): UserOperation;
-    private static getPackedInitCode;
+    static activateWalletOp(walletLogicAddress: string, entryPointAddress: string, ownerAddress: string, upgradeDelay: number, guardianDelay: number, guardianAddress: string, tokenAddress: string, payMasterAddress: string, salt: number, create2Factory: string, maxFeePerGas: NumberLike, maxPriorityFeePerGas: NumberLike): UserOperation;
+    static getPackedInitCode(create2Factory: string, initCode: string, salt: number): string;
     /**
      * calculate EIP-4337 wallet address
      * @param initContract the init Contract

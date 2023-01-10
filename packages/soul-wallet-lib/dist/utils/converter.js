@@ -5,7 +5,7 @@
  * @Autor: z.cejay@gmail.com
  * @Date: 2022-11-07 21:08:08
  * @LastEditors: cejay
- * @LastEditTime: 2022-11-30 14:42:08
+ * @LastEditTime: 2022-12-23 19:46:07
  */
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
@@ -26,7 +26,7 @@ class Converter {
         return __awaiter(this, void 0, void 0, function* () {
             const op = new userOperation_1.UserOperation();
             op.sender = transcation.from;
-            op.preVerificationGas = 150000;
+            //op.preVerificationGas = 150000;
             op.nonce = nonce;
             op.paymasterAndData = paymasterAndData;
             op.maxFeePerGas = maxFeePerGas;

@@ -4,13 +4,14 @@
  * @Autor: z.cejay@gmail.com
  * @Date: 2022-07-25 10:53:52
  * @LastEditors: cejay
- * @LastEditTime: 2022-11-23 16:31:28
+ * @LastEditTime: 2023-01-01 21:54:56
  */
 
 import { ethers, BigNumber } from "ethers";
 import { Deferrable } from "ethers/lib/utils";
-import { Guard } from '../utils/guard';
-import { signUserOp, payMasterSignHash, getRequestId, signUserOpWithPersonalSign } from '../utils/userOp';
+import { NumberLike, toDecString } from "../defines/numberLike";
+import { guardianSignature } from "../utils/Guardian";
+import { signUserOp, payMasterSignHash, getUserOpHash, signUserOpWithPersonalSign, packGuardiansSignByInitCode } from '../utils/userOp';
 import { TransactionInfo } from './transactionInfo';
 
 /**
@@ -23,29 +24,13 @@ class UserOperation {
     public nonce: number = 0;
     public initCode: string = '0x';
     public callData: string = '0x';
-    public callGasLimit: number = 0;
-    public verificationGasLimit: number = 0;
-    public preVerificationGas: number = 62000;
-    public maxFeePerGas: number = 0;
-    public maxPriorityFeePerGas: number = 0;
+    public callGasLimit: NumberLike = 0;
+    public verificationGasLimit: NumberLike = 60000;
+    public preVerificationGas: NumberLike = 2100;
+    public maxFeePerGas: NumberLike = 0;
+    public maxPriorityFeePerGas: NumberLike = 0;
     public paymasterAndData: string = '0x';
     public signature: string = '0x';
-
-    public clone(): UserOperation {
-        const clone = new UserOperation();
-        clone.sender = this.sender;
-        clone.nonce = this.nonce;
-        clone.initCode = this.initCode;
-        clone.callData = this.callData;
-        clone.callGasLimit = this.callGasLimit;
-        clone.verificationGasLimit = this.verificationGasLimit;
-        clone.preVerificationGas = this.preVerificationGas;
-        clone.maxFeePerGas = this.maxFeePerGas;
-        clone.maxPriorityFeePerGas = this.maxPriorityFeePerGas;
-        clone.paymasterAndData = this.paymasterAndData;
-        clone.signature = this.signature;
-        return clone;
-    }
 
     public toTuple(): string {
         /* 
@@ -65,6 +50,22 @@ class UserOperation {
         return `["${this.sender.toLocaleLowerCase()}","${this.nonce}","${this.initCode}","${this.callData}","${this.callGasLimit}","${this.verificationGasLimit}","${this.preVerificationGas}","${this.maxFeePerGas}","${this.maxPriorityFeePerGas}","${this.paymasterAndData}","${this.signature}"]`;
     }
 
+    public toJSON(): string {
+        return JSON.stringify({
+            sender: this.sender,
+            nonce: this.nonce,
+            initCode: this.initCode,
+            callData: this.callData,
+            callGasLimit: toDecString(this.callGasLimit),
+            verificationGasLimit: toDecString(this.verificationGasLimit),
+            preVerificationGas: toDecString(this.preVerificationGas),
+            maxFeePerGas: toDecString(this.maxFeePerGas),
+            maxPriorityFeePerGas: toDecString(this.maxPriorityFeePerGas),
+            paymasterAndData: this.paymasterAndData,
+            signature: this.signature
+        });
+    }
+
     /**
      * estimate the gas
      * @param entryPointAddress the entry point address
@@ -78,10 +79,11 @@ class UserOperation {
         // (transaction: ethers.utils.Deferrable<ethers.providers.TransactionRequest>): Promise<ether.BigNumber>
     ) {
         try {
-            this.verificationGasLimit = 150000;
-            if (this.initCode.length > 0) {
-                this.verificationGasLimit += (3200 + 200 * this.initCode.length);
-            }
+            // //  // Single signer 385000,
+            // this.verificationGasLimit = 60000;
+            // if (this.initCode.length > 0) {
+            //     this.verificationGasLimit += (3200 + 200 * this.initCode.length);
+            // }
             const estimateGasRe = await etherProvider.estimateGas({
                 from: entryPointAddress,
                 to: this.sender,
@@ -115,8 +117,6 @@ class UserOperation {
         entryPoint: string,
         chainId: number,
         privateKey: string): void {
-        Guard.uint(chainId);
-        Guard.address(entryPoint);
         this.signature = signUserOp(this, entryPoint, chainId, privateKey);
     }
 
@@ -124,21 +124,44 @@ class UserOperation {
     /**
      * sign the user operation with personal sign
      * @param signAddress the sign address
-     * @param signature the signature of the requestId
+     * @param signature the signature of the UserOpHash
      */
     public signWithSignature(signAddress: string, signature: string) {
         this.signature = signUserOpWithPersonalSign(signAddress, signature);
     }
 
+    /**
+     * sign the user operation with guardians sign
+     * @param guardianAddress guardian address
+     * @param signature guardians signature
+     * @param deadline deadline (block timestamp)
+     * @param initCode guardian contract init code
+     */
+    public signWithGuardiansSign(guardianAddress: string, signature: guardianSignature[], deadline = 0, initCode = '0x') {
+        this.signature = packGuardiansSignByInitCode(guardianAddress, signature, deadline, initCode);
+    }
+
 
     /**
-     * get the request id (userOp hash)
+     * get the UserOpHash (userOp hash)
      * @param entryPointAddress the entry point address
      * @param chainId the chain id
      * @returns hex string
      */
-    public getRequestId(entryPointAddress: string, chainId: number): string {
-        return getRequestId(this, entryPointAddress, chainId);
+    public getUserOpHash(entryPointAddress: string, chainId: number): string {
+        return getUserOpHash(this, entryPointAddress, chainId);
+    }
+
+    /**
+     * get the UserOpHash (userOp hash) with deadline
+     * @param entryPointAddress 
+     * @param chainId 
+     * @param deadline unix timestamp
+     * @returns bytes32 hash
+     */
+    public getUserOpHashWithDeadline(entryPointAddress: string, chainId: number, deadline: number): string {
+        const _hash = this.getUserOpHash(entryPointAddress, chainId);
+        return ethers.utils.solidityKeccak256(['bytes32', 'uint64'], [_hash, deadline]);
     }
 
 }

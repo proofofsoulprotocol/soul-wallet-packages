@@ -1,4 +1,6 @@
 import { ethers } from "ethers";
+import { NumberLike } from "../defines/numberLike";
+import { guardianSignature } from "../utils/Guardian";
 /**
  * @link https://github.com/eth-infinitism/account-abstraction/blob/develop/contracts/UserOperation.sol
  */
@@ -7,15 +9,15 @@ declare class UserOperation {
     nonce: number;
     initCode: string;
     callData: string;
-    callGasLimit: number;
-    verificationGasLimit: number;
-    preVerificationGas: number;
-    maxFeePerGas: number;
-    maxPriorityFeePerGas: number;
+    callGasLimit: NumberLike;
+    verificationGasLimit: NumberLike;
+    preVerificationGas: NumberLike;
+    maxFeePerGas: NumberLike;
+    maxPriorityFeePerGas: NumberLike;
     paymasterAndData: string;
     signature: string;
-    clone(): UserOperation;
     toTuple(): string;
+    toJSON(): string;
     /**
      * estimate the gas
      * @param entryPointAddress the entry point address
@@ -38,15 +40,31 @@ declare class UserOperation {
     /**
      * sign the user operation with personal sign
      * @param signAddress the sign address
-     * @param signature the signature of the requestId
+     * @param signature the signature of the UserOpHash
      */
     signWithSignature(signAddress: string, signature: string): void;
     /**
-     * get the request id (userOp hash)
+     * sign the user operation with guardians sign
+     * @param guardianAddress guardian address
+     * @param signature guardians signature
+     * @param deadline deadline (block timestamp)
+     * @param initCode guardian contract init code
+     */
+    signWithGuardiansSign(guardianAddress: string, signature: guardianSignature[], deadline?: number, initCode?: string): void;
+    /**
+     * get the UserOpHash (userOp hash)
      * @param entryPointAddress the entry point address
      * @param chainId the chain id
      * @returns hex string
      */
-    getRequestId(entryPointAddress: string, chainId: number): string;
+    getUserOpHash(entryPointAddress: string, chainId: number): string;
+    /**
+     * get the UserOpHash (userOp hash) with deadline
+     * @param entryPointAddress
+     * @param chainId
+     * @param deadline unix timestamp
+     * @returns bytes32 hash
+     */
+    getUserOpHashWithDeadline(entryPointAddress: string, chainId: number, deadline: number): string;
 }
 export { UserOperation };

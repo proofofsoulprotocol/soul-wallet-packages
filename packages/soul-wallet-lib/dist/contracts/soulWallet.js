@@ -5,7 +5,7 @@
  * @Autor: z.cejay@gmail.com
  * @Date: 2022-08-05 21:13:10
  * @LastEditors: cejay
- * @LastEditTime: 2022-11-05 00:03:44
+ * @LastEditTime: 2023-01-03 09:29:12
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SimpleWalletContract = void 0;
@@ -19,51 +19,106 @@ const ABI = [
         "anonymous": false,
         "inputs": [
             {
-                "indexed": false,
+                "indexed": true,
                 "internalType": "address",
-                "name": "previousAdmin",
+                "name": "account",
+                "type": "address"
+            },
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "entryPoint",
                 "type": "address"
             },
             {
                 "indexed": false,
                 "internalType": "address",
-                "name": "newAdmin",
+                "name": "owner",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint32",
+                "name": "upgradeDelay",
+                "type": "uint32"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint32",
+                "name": "guardianDelay",
+                "type": "uint32"
+            },
+            {
+                "indexed": false,
+                "internalType": "address",
+                "name": "guardian",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "internalType": "address",
+                "name": "erc20token",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "internalType": "address",
+                "name": "paymaster",
                 "type": "address"
             }
         ],
-        "name": "AdminChanged",
+        "name": "AccountInitialized",
         "type": "event"
     },
     {
         "anonymous": false,
         "inputs": [
             {
-                "indexed": true,
+                "indexed": false,
                 "internalType": "address",
-                "name": "beacon",
+                "name": "guardian",
                 "type": "address"
             }
         ],
-        "name": "BeaconUpgraded",
+        "name": "GuardianCanceled",
         "type": "event"
     },
     {
         "anonymous": false,
         "inputs": [
             {
-                "indexed": true,
+                "indexed": false,
                 "internalType": "address",
-                "name": "oldEntryPoint",
+                "name": "guardian",
                 "type": "address"
             },
             {
-                "indexed": true,
+                "indexed": false,
                 "internalType": "address",
-                "name": "newEntryPoint",
+                "name": "previousGuardian",
                 "type": "address"
             }
         ],
-        "name": "EntryPointChanged",
+        "name": "GuardianConfirmed",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": false,
+                "internalType": "address",
+                "name": "guardian",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint64",
+                "name": "activateTime",
+                "type": "uint64"
+            }
+        ],
+        "name": "GuardianSet",
         "type": "event"
     },
     {
@@ -83,25 +138,19 @@ const ABI = [
         "anonymous": false,
         "inputs": [
             {
-                "indexed": true,
+                "indexed": false,
                 "internalType": "address",
-                "name": "account",
+                "name": "newLogic",
                 "type": "address"
             },
             {
-                "indexed": true,
-                "internalType": "enum SmartWallet.PendingRequestType",
-                "name": "pendingRequestType",
-                "type": "uint8"
-            },
-            {
                 "indexed": false,
-                "internalType": "uint256",
-                "name": "effectiveAt",
-                "type": "uint256"
+                "internalType": "uint64",
+                "name": "activateTime",
+                "type": "uint64"
             }
         ],
-        "name": "PendingRequestEvent",
+        "name": "PreUpgrade",
         "type": "event"
     },
     {
@@ -183,9 +232,9 @@ const ABI = [
         "anonymous": false,
         "inputs": [
             {
-                "indexed": true,
+                "indexed": false,
                 "internalType": "address",
-                "name": "implementation",
+                "name": "newImplementation",
                 "type": "address"
             }
         ],
@@ -207,32 +256,6 @@ const ABI = [
     },
     {
         "inputs": [],
-        "name": "GUARDIAN_ROLE",
-        "outputs": [
-            {
-                "internalType": "bytes32",
-                "name": "",
-                "type": "bytes32"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [],
-        "name": "OWNER_ROLE",
-        "outputs": [
-            {
-                "internalType": "bytes32",
-                "name": "",
-                "type": "bytes32"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [],
         "name": "addDeposit",
         "outputs": [],
         "stateMutability": "payable",
@@ -242,11 +265,11 @@ const ABI = [
         "inputs": [
             {
                 "internalType": "address",
-                "name": "account",
+                "name": "guardian",
                 "type": "address"
             }
         ],
-        "name": "deleteGuardianRequest",
+        "name": "cancelGuardian",
         "outputs": [],
         "stateMutability": "nonpayable",
         "type": "function"
@@ -344,83 +367,6 @@ const ABI = [
     {
         "inputs": [
             {
-                "internalType": "uint256",
-                "name": "index",
-                "type": "uint256"
-            }
-        ],
-        "name": "getGuardian",
-        "outputs": [
-            {
-                "internalType": "address",
-                "name": "",
-                "type": "address"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [],
-        "name": "getGuardiansCount",
-        "outputs": [
-            {
-                "internalType": "uint256",
-                "name": "",
-                "type": "uint256"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [],
-        "name": "getMinGuardiansSignatures",
-        "outputs": [
-            {
-                "internalType": "uint256",
-                "name": "",
-                "type": "uint256"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "uint256",
-                "name": "index",
-                "type": "uint256"
-            }
-        ],
-        "name": "getOwner",
-        "outputs": [
-            {
-                "internalType": "address",
-                "name": "",
-                "type": "address"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [],
-        "name": "getOwnersCount",
-        "outputs": [
-            {
-                "internalType": "uint256",
-                "name": "",
-                "type": "uint256"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
                 "internalType": "bytes32",
                 "name": "role",
                 "type": "bytes32"
@@ -490,33 +436,7 @@ const ABI = [
                 "type": "uint256"
             }
         ],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "address",
-                "name": "account",
-                "type": "address"
-            }
-        ],
-        "name": "grantGuardianConfirmation",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "address",
-                "name": "account",
-                "type": "address"
-            }
-        ],
-        "name": "grantGuardianRequest",
-        "outputs": [],
-        "stateMutability": "nonpayable",
+        "stateMutability": "pure",
         "type": "function"
     },
     {
@@ -539,15 +459,43 @@ const ABI = [
     },
     {
         "inputs": [],
-        "name": "guardianDelay",
+        "name": "guardianInfo",
         "outputs": [
             {
-                "internalType": "uint256",
+                "internalType": "address",
                 "name": "",
-                "type": "uint256"
+                "type": "address"
+            },
+            {
+                "internalType": "address",
+                "name": "",
+                "type": "address"
+            },
+            {
+                "internalType": "uint64",
+                "name": "",
+                "type": "uint64"
+            },
+            {
+                "internalType": "uint32",
+                "name": "",
+                "type": "uint32"
             }
         ],
         "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "guardianProcess",
+        "outputs": [
+            {
+                "internalType": "bool",
+                "name": "",
+                "type": "bool"
+            }
+        ],
+        "stateMutability": "nonpayable",
         "type": "function"
     },
     {
@@ -578,47 +526,43 @@ const ABI = [
         "inputs": [
             {
                 "internalType": "contract IEntryPoint",
-                "name": "anEntryPoint",
+                "name": "_entryPoint",
                 "type": "address"
             },
             {
                 "internalType": "address",
-                "name": "anOwner",
+                "name": "_owner",
+                "type": "address"
+            },
+            {
+                "internalType": "uint32",
+                "name": "_upgradeDelay",
+                "type": "uint32"
+            },
+            {
+                "internalType": "uint32",
+                "name": "_guardianDelay",
+                "type": "uint32"
+            },
+            {
+                "internalType": "address",
+                "name": "_guardian",
                 "type": "address"
             },
             {
                 "internalType": "contract IERC20",
-                "name": "token",
+                "name": "_erc20token",
                 "type": "address"
             },
             {
                 "internalType": "address",
-                "name": "paymaster",
+                "name": "_paymaster",
                 "type": "address"
             }
         ],
         "name": "initialize",
         "outputs": [],
         "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "address",
-                "name": "account",
-                "type": "address"
-            }
-        ],
-        "name": "isGuardian",
-        "outputs": [
-            {
-                "internalType": "bool",
-                "name": "",
-                "type": "bool"
-            }
-        ],
-        "stateMutability": "view",
         "type": "function"
     },
     {
@@ -641,6 +585,65 @@ const ABI = [
         "type": "function"
     },
     {
+        "inputs": [
+            {
+                "internalType": "bytes32",
+                "name": "hash",
+                "type": "bytes32"
+            },
+            {
+                "internalType": "bytes",
+                "name": "signature",
+                "type": "bytes"
+            }
+        ],
+        "name": "isValidSignature",
+        "outputs": [
+            {
+                "internalType": "bytes4",
+                "name": "",
+                "type": "bytes4"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "logicUpgradeInfo",
+        "outputs": [
+            {
+                "components": [
+                    {
+                        "internalType": "uint32",
+                        "name": "upgradeDelay",
+                        "type": "uint32"
+                    },
+                    {
+                        "internalType": "uint64",
+                        "name": "activateTime",
+                        "type": "uint64"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "pendingImplementation",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "uint256[50]",
+                        "name": "__gap",
+                        "type": "uint256[50]"
+                    }
+                ],
+                "internalType": "struct ILogicUpgradeControl.UpgradeLayout",
+                "name": "",
+                "type": "tuple"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
         "inputs": [],
         "name": "nonce",
         "outputs": [
@@ -657,37 +660,13 @@ const ABI = [
         "inputs": [
             {
                 "internalType": "address",
-                "name": "",
+                "name": "newImplementation",
                 "type": "address"
             }
         ],
-        "name": "pendingGuardian",
-        "outputs": [
-            {
-                "internalType": "enum SmartWallet.PendingRequestType",
-                "name": "pendingRequestType",
-                "type": "uint8"
-            },
-            {
-                "internalType": "uint256",
-                "name": "effectiveAt",
-                "type": "uint256"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [],
-        "name": "proxiableUUID",
-        "outputs": [
-            {
-                "internalType": "bytes32",
-                "name": "",
-                "type": "bytes32"
-            }
-        ],
-        "stateMutability": "view",
+        "name": "preUpgradeTo",
+        "outputs": [],
+        "stateMutability": "nonpayable",
         "type": "function"
     },
     {
@@ -711,32 +690,6 @@ const ABI = [
     {
         "inputs": [
             {
-                "internalType": "address",
-                "name": "account",
-                "type": "address"
-            }
-        ],
-        "name": "revokeGuardianConfirmation",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "address",
-                "name": "account",
-                "type": "address"
-            }
-        ],
-        "name": "revokeGuardianRequest",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
                 "internalType": "bytes32",
                 "name": "role",
                 "type": "bytes32"
@@ -748,6 +701,19 @@ const ABI = [
             }
         ],
         "name": "revokeRole",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "guardian",
+                "type": "address"
+            }
+        ],
+        "name": "setGuardian",
         "outputs": [],
         "stateMutability": "nonpayable",
         "type": "function"
@@ -793,7 +759,7 @@ const ABI = [
         "inputs": [
             {
                 "internalType": "address",
-                "name": "account",
+                "name": "newOwner",
                 "type": "address"
             }
         ],
@@ -803,47 +769,10 @@ const ABI = [
         "type": "function"
     },
     {
-        "inputs": [
-            {
-                "internalType": "address",
-                "name": "newEntryPoint",
-                "type": "address"
-            }
-        ],
-        "name": "updateEntryPoint",
+        "inputs": [],
+        "name": "upgrade",
         "outputs": [],
         "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "address",
-                "name": "newImplementation",
-                "type": "address"
-            }
-        ],
-        "name": "upgradeTo",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "address",
-                "name": "newImplementation",
-                "type": "address"
-            },
-            {
-                "internalType": "bytes",
-                "name": "data",
-                "type": "bytes"
-            }
-        ],
-        "name": "upgradeToAndCall",
-        "outputs": [],
-        "stateMutability": "payable",
         "type": "function"
     },
     {
@@ -912,7 +841,7 @@ const ABI = [
             },
             {
                 "internalType": "bytes32",
-                "name": "requestId",
+                "name": "userOpHash",
                 "type": "bytes32"
             },
             {
@@ -922,12 +851,18 @@ const ABI = [
             },
             {
                 "internalType": "uint256",
-                "name": "missingWalletFunds",
+                "name": "missingAccountFunds",
                 "type": "uint256"
             }
         ],
         "name": "validateUserOp",
-        "outputs": [],
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "deadline",
+                "type": "uint256"
+            }
+        ],
         "stateMutability": "nonpayable",
         "type": "function"
     },
@@ -960,4 +895,4 @@ const contract = {
     bytecode
 };
 exports.SimpleWalletContract = contract;
-//# sourceMappingURL=simpleWallet.js.map
+//# sourceMappingURL=soulWallet.js.map

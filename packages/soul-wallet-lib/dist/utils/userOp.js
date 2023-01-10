@@ -3,21 +3,12 @@
  * fork from:
  * @link https://github.com/eth-infinitism/account-abstraction/blob/develop/test/UserOp.ts
  */
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.payMasterSignHash = exports.packGuardiansSignByRequestId = exports.signUserOpWithPersonalSign = exports.signUserOp = exports.getRequestId = exports.packUserOp = void 0;
+exports.payMasterSignHash = exports.packGuardiansSignByInitCode = exports.packGuardiansSign = exports.signUserOpWithPersonalSign = exports.signUserOp = exports.getUserOpHash = exports.packUserOp = void 0;
 const utils_1 = require("ethers/lib/utils");
 const ethereumjs_util_1 = require("ethereumjs-util");
 const ethers_1 = require("ethers");
-const simpleWallet_1 = require("../contracts/simpleWallet");
+const Guardian_1 = require("./Guardian");
 function encode(typevalues, forSignature) {
     const types = typevalues.map(typevalue => typevalue.type === 'bytes' && forSignature ? 'bytes32' : typevalue.type);
     const values = typevalues.map((typevalue) => typevalue.type === 'bytes' && forSignature ? (0, utils_1.keccak256)(typevalue.val) : typevalue.val);
@@ -67,25 +58,25 @@ function packUserOp(op, forSignature = true) {
     return encode(typevalues, forSignature);
 }
 exports.packUserOp = packUserOp;
-function getRequestId(op, entryPointAddress, chainId) {
+function getUserOpHash(op, entryPointAddress, chainId) {
     const userOpHash = (0, utils_1.keccak256)(packUserOp(op, true));
     const enc = utils_1.defaultAbiCoder.encode(['bytes32', 'address', 'uint256'], [userOpHash, entryPointAddress, chainId]);
     return (0, utils_1.keccak256)(enc);
 }
-exports.getRequestId = getRequestId;
+exports.getUserOpHash = getUserOpHash;
 var SignatureMode;
 (function (SignatureMode) {
     SignatureMode[SignatureMode["owner"] = 0] = "owner";
-    SignatureMode[SignatureMode["guardians"] = 1] = "guardians";
+    SignatureMode[SignatureMode["guardian"] = 1] = "guardian";
 })(SignatureMode || (SignatureMode = {}));
 function _signUserOp(op, entryPointAddress, chainId, privateKey) {
-    const message = getRequestId(op, entryPointAddress, chainId);
+    const message = getUserOpHash(op, entryPointAddress, chainId);
     return _signReuestId(message, privateKey);
 }
-function _signReuestId(requestId, privateKey) {
+function _signReuestId(userOpHash, privateKey) {
     const msg1 = Buffer.concat([
         Buffer.from('\x19Ethereum Signed Message:\n32', 'ascii'),
-        Buffer.from((0, utils_1.arrayify)(requestId))
+        Buffer.from((0, utils_1.arrayify)(userOpHash))
     ]);
     const sig = (0, ethereumjs_util_1.ecsign)((0, ethereumjs_util_1.keccak256)(msg1), Buffer.from((0, utils_1.arrayify)(privateKey)));
     // that's equivalent of:  await signer.signMessage(message);
@@ -107,90 +98,63 @@ function signUserOp(op, entryPointAddress, chainId, privateKey) {
 }
 exports.signUserOp = signUserOp;
 /**
- * sign a user operation with the requestId signature
+ * sign a user operation with the UserOpHash signature
  * @param signAddress signer address
- * @param signature the signature of the requestId
- * @returns
+ * @param signature the signature of the UserOpHash
+ * @param deadline deadline (block time), default 0
+ * @returns signature
  */
-function signUserOpWithPersonalSign(signAddress, signature) {
-    const enc = utils_1.defaultAbiCoder.encode(['uint8', 'tuple(address signer,bytes signature)[]'], [
+function signUserOpWithPersonalSign(signAddress, signature, deadline = 0) {
+    const enc = utils_1.defaultAbiCoder.encode(['uint8', 'address', 'uint64', 'bytes'], [
         SignatureMode.owner,
-        [
-            {
-                signer: signAddress,
-                signature: signature
-            }
-        ]
+        signAddress,
+        deadline,
+        signature
     ]);
     return enc;
 }
 exports.signUserOpWithPersonalSign = signUserOpWithPersonalSign;
 /**
  * sign a user operation with guardian signatures
- * @param requestId
- * @param signatures
- * @param walletAddress if web3 and walletAddress is not null, will check the signer on chain
- * @param web3 if web3 and walletAddress is not null, will check the signer on chain
+ * @param signatures guardian signatures
+ * @param guardianLogicAddress guardian logic contract address
+ * @param guardians guardian addresses
+ * @param threshold threshold
+ * @param salt salt
+ * @param create2Factory create2 factory address
+ * @param guardianAddress guardian contract address,if provided will check if equal to the calculated guardian address
+ * @returns signature
+ */
+function packGuardiansSign(deadline, signature, guardianLogicAddress, guardians, threshold, salt, create2Factory, guardianAddress = undefined) {
+    const guardianData = Guardian_1.Guaridian.calculateGuardianAndInitCode(guardianLogicAddress, guardians, threshold, salt, create2Factory);
+    if (guardianAddress) {
+        if (guardianData.address != guardianAddress) {
+            throw new Error('guardianAddress is not equal to the calculated guardian address');
+        }
+    }
+    return packGuardiansSignByInitCode(guardianData.address, signature, deadline, guardianData.initCode);
+}
+exports.packGuardiansSign = packGuardiansSign;
+/**
+ * sign a user operation with guardian signatures
+ * @param guardianAddress guardian contract address
+ * @param signatures guardian signatures
+ * @param deadline deadline (block time), default 0
+ * @param initCode intiCode must given when the guardian contract is not deployed
  * @returns
  */
-function packGuardiansSignByRequestId(requestId, signatures, walletAddress = null, etherProvider = null) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const msg = (0, ethereumjs_util_1.keccak256)(Buffer.concat([
-            Buffer.from('\x19Ethereum Signed Message:\n32', 'ascii'),
-            Buffer.from((0, utils_1.arrayify)(requestId))
-        ]));
-        const signList = [];
-        const signerSet = new Set();
-        for (let index = 0; index < signatures.length; index++) {
-            const signature = signatures[index];
-            try {
-                const signer = (0, utils_1.recoverAddress)(msg, signature);
-                if (!signerSet.has(signer)) {
-                    signerSet.add(signer);
-                    signList.push({
-                        signer: signer,
-                        signature: signature
-                    });
-                }
-                else {
-                    console.log("duplicate signer: ", signer);
-                }
-            }
-            catch (error) {
-                throw new Error(`invalid signature: ${signature}`);
-            }
-        }
-        if (etherProvider && walletAddress) {
-            // function isGuardian(address account) public view returns (bool)
-            const contract = new ethers_1.ethers.Contract(walletAddress, simpleWallet_1.SimpleWalletContract.ABI, etherProvider);
-            const guardiansCount = parseInt(yield contract.getGuardiansCount().call());
-            if (guardiansCount < 2) {
-                throw new Error(`guardians count must >= 2`);
-            }
-            const minSignatureLen = Math.round(guardiansCount / 2);
-            if (signList.length < minSignatureLen) {
-                throw new Error(`signatures count must >= ${minSignatureLen}`);
-            }
-            for (let index = 0; index < signList.length; index++) {
-                const sign = signList[index];
-                const isGuardian = yield contract.isGuardian(sign.signer).call();
-                if (!isGuardian) {
-                    throw new Error(`signer ${sign.signer} is not a guardian`);
-                }
-            }
-        }
-        // sort signList by bn asc
-        signList.sort((a, b) => {
-            return ethers_1.BigNumber.from(a.signer).lt(ethers_1.BigNumber.from(b.signer)) ? -1 : 1;
-        });
-        const enc = utils_1.defaultAbiCoder.encode(['uint8', 'tuple(address signer,bytes signature)[]'], [
-            SignatureMode.guardians,
-            signList
-        ]);
-        return enc;
-    });
+function packGuardiansSignByInitCode(guardianAddress, signature, deadline = 0, initCode = '0x') {
+    const signatureBytes = Guardian_1.Guaridian.guardianSign(signature);
+    const guardianCallData = utils_1.defaultAbiCoder.encode(['bytes', 'bytes'], [signatureBytes, initCode]);
+    const enc = utils_1.defaultAbiCoder.encode(['uint8', 'address', 'uint64', 'bytes'], [
+        SignatureMode.guardian,
+        guardianAddress,
+        deadline,
+        guardianCallData
+    ]);
+    return enc;
 }
-exports.packGuardiansSignByRequestId = packGuardiansSignByRequestId;
+exports.packGuardiansSignByInitCode = packGuardiansSignByInitCode;
 function payMasterSignHash(op) {
     return (0, utils_1.keccak256)(utils_1.defaultAbiCoder.encode([
         'address',

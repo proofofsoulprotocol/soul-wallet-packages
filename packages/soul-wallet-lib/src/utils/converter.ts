@@ -4,12 +4,13 @@
  * @Autor: z.cejay@gmail.com
  * @Date: 2022-11-07 21:08:08
  * @LastEditors: cejay
- * @LastEditTime: 2022-11-30 14:42:08
+ * @LastEditTime: 2022-12-23 19:46:07
  */
 
 import { UserOperation } from "../entity/userOperation";
 import { execFromEntryPoint } from "../defines/ABI";
 import { ethers } from "ethers";
+import { NumberLike } from "../defines/numberLike";
 
 export interface ITransaction {
     data: string;
@@ -26,13 +27,13 @@ export class Converter {
         entryPointAddress: string,
         transcation: ITransaction,
         nonce: number = 0,
-        maxFeePerGas: number = 0,
-        maxPriorityFeePerGas: number = 0,
+        maxFeePerGas: NumberLike = 0,
+        maxPriorityFeePerGas: NumberLike = 0,
         paymasterAndData: string = "0x"
     ): Promise<UserOperation | null> {
         const op = new UserOperation();
         op.sender = transcation.from;
-        op.preVerificationGas = 150000;
+        //op.preVerificationGas = 150000;
         op.nonce = nonce;
         op.paymasterAndData = paymasterAndData;
         op.maxFeePerGas = maxFeePerGas;
